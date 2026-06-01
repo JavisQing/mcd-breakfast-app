@@ -33,7 +33,7 @@ init_db()
 
 # 预设固定的校园地址列表
 ADDRESS_DATA = {
-    "🏫 教学楼": [
+    "🏫 教学楼区": [
         "1 号教学楼（一教）", "2 号教学楼（二教）", "3 号教学楼（三教）", 
         "4 号教学楼（法学院）", "5 号教学楼（五教）", "6 号教学楼（六教）", 
         "7 号教学楼（七教）", "8 号教学楼（实验楼）", "9 号教学楼（九教）", 
@@ -41,16 +41,16 @@ ADDRESS_DATA = {
         "13 号教学楼（十三教）", "14 号教学楼（十四教）", "15 号教学楼（十五教）", 
         "16 号教学楼（建筑学院）", "经管大楼", "港航中心", "电苑楼", "图书馆A/B馆"
     ],
-    "🍏 西苑": [f"西苑 {i} 栋" for i in range(1, 12)],
-    "🍓 东苑": [f"东苑 {i} 栋" for i in range(1, 16)] + ["外教楼"],
-    "🍊 南苑": [f"南苑 {i} 栋" for i in range(1, 9)]
+    "🍏 西苑宿舍区": [f"西苑 {i} 栋" for i in range(1, 12)],
+    "🍓 东苑宿舍区": [f"东苑 {i} 栋" for i in range(1, 16)] + ["外教楼"],
+    "🍊 南苑宿舍区": [f"南苑 {i} 栋" for i in range(1, 9)]
 }
 
 # 检查是否开启管理员入口
 query_params = st.query_params
 is_admin_mode = query_params.get("mode") == "admin"
 
-# 如果不是管理员访问，则隐藏左侧边栏（给学生最干净的界面）
+# 如果不是管理员访问，则隐藏左侧边栏
 if not is_admin_mode:
     st.markdown("<style>ul[data-testid='sidebar-nav-items'] {display: none;}</style>", unsafe_allow_html=True)
     st.markdown("<style>[data-testid='stSidebar'] {display: none;}</style>", unsafe_allow_html=True)
@@ -66,26 +66,35 @@ if uploaded_file:
     st.image(uploaded_file, caption="已上传截图预览", width=300)
 
 st.subheader("📌 步骤二：选择配送地址")
-st.info("💡 请先点击下方对应的大区域标签，再在下拉框中选择具体栋数。")
+st.info("💡 点击下方你想送达的大区域（点一次显示楼栋，再点一次收起隐藏），然后在里面选择具体栋数。")
 
-# 采用 Tabs 标签页，彻底解决频繁刷新的“操作繁忙感”
-tabs = st.tabs(list(ADDRESS_DATA.keys()))
 selected_address = None
 
-for index, (area, addresses) in enumerate(ADDRESS_DATA.items()):
-    with tabs[index]:
-        # 每一个标签页里只有一个独立的单选框
-        res = st.selectbox(f"请选择具体地址 ({area})", addresses, key=f"select_{area}")
-        # 如果当前激活了该标签页，就把选中的地址存下来
+# 使用 st.expander 替代 tabs，完美实现“点一次出现，再点一次消失”
+for area, addresses in ADDRESS_DATA.items():
+    # 默认全部折叠收起（expanded=False）
+    with st.expander(f"✨ 点击展开/收起：{area}", expanded=False):
+        res = st.selectbox(
+            f"请选择具体地址", 
+            addresses, 
+            index=None,
+            placeholder="--- 请在此处勾选你的具体楼栋 ---",
+            key=f"select_{area}"
+        )
         if res:
             selected_address = res
 
+# 实时显示学生当前锁定的目标地址，防止误触其他区域
+if selected_address:
+    st.success(f"🎯 当前已锁定目标配送地址：**{selected_address}**")
+
 # 提交按钮
-if st.button("🚀 提交订单", type="primary", use_container_width=True):
+st.write("")
+if st.button("🚀 确认提交订单", type="primary", use_container_width=True):
     if not uploaded_file:
         st.error("❌ 请先上传您的麦当劳订单截图！")
     elif not selected_address:
-        st.error("❌ 请选择配送地址！")
+        st.error("❌ 请先展开上方区域并选择具体的配送楼栋！")
     else:
         with st.spinner("正在提交中，请稍候..."):
             try:
@@ -141,7 +150,6 @@ if is_admin_mode or (admin_password_input == st.secrets.get("ADMIN_PASSWORD", "m
         
         # 循环渲染图片墙
         for addr, imgs in grouped_orders.items():
-            # expanded=False 默认全部收起，单点展开，再点消失！
             with st.expander(f"📍 {addr} （共 {len(imgs)} 单）", expanded=False):
                 cols = st.columns(2)
                 for idx, img_b64 in enumerate(imgs):
