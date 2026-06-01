@@ -122,14 +122,38 @@ hide_streamlit_style = """
         }
     </style>
     <script>
-        // 完全去掉标题中的 "Streamlit" 字样
-        const observer = new MutationObserver(() => {
-            if (document.title.includes("Streamlit")) {
-                document.title = "麦当劳早餐配送";
+        // 完全隐藏所有 Streamlit 平台元素
+        (function() {
+            document.title = "麦当劳早餐配送";
+
+            // 监视标题变化（Streamlit 每次 rerun 会改回去）
+            if (typeof MutationObserver !== 'undefined') {
+                new MutationObserver(function() {
+                    if (document.title.includes("Streamlit")) {
+                        document.title = "麦当劳早餐配送";
+                    }
+                }).observe(document.querySelector('head'), { childList: true, subtree: true });
+
+                // 尝试处理父窗口（Streamlit Cloud 托管外壳）
+                try {
+                    var pd = window.parent.document;
+                    pd.title = "麦当劳早餐配送";
+                    new MutationObserver(function() {
+                        if (pd.title.includes("Streamlit")) pd.title = "麦当劳早餐配送";
+                    }).observe(pd.querySelector('head'), { childList: true, subtree: true });
+
+                    // 持续隐藏父窗口中的托管链接、头像等
+                    new MutationObserver(function() {
+                        pd.querySelectorAll('a[href*="streamlit.io"]').forEach(function(el) {
+                            el.style.setProperty('display', 'none', 'important');
+                        });
+                        pd.querySelectorAll('img[alt="App Creator Avatar"], [data-testid="stStatusWidget"]').forEach(function(el) {
+                            el.style.setProperty('display', 'none', 'important');
+                        });
+                    }).observe(pd.body, { childList: true, subtree: true });
+                } catch(e) { /* 跨域限制则静默跳过 */ }
             }
-        });
-        observer.observe(document.querySelector('head'), { childList: true, subtree: true });
-        document.title = "麦当劳早餐配送";
+        })();
     </script>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
