@@ -66,25 +66,28 @@ if uploaded_file:
     st.image(uploaded_file, caption="已上传截图预览", width=300)
 
 st.subheader("📌 步骤二：选择配送地址")
-st.info("💡 点击下方你想送达的大区域（点一次显示楼栋，再点一次收起隐藏），然后在里面选择具体栋数。")
+st.info("💡 点击下方你想送达的大区域大标题（点一次展开，再点一次整体隐藏）。")
 
 selected_address = None
 
-# 使用 st.expander 替代 tabs，完美实现“点一次出现，再点一次消失”
+# 核心修改点：把“请选择具体地址”塞进 with 内部，跟下拉框一起由折叠面板控制！
 for area, addresses in ADDRESS_DATA.items():
-    # 默认全部折叠收起（expanded=False）
+    # 默认全部折叠收起
     with st.expander(f"✨ 点击展开/收起：{area}", expanded=False):
+        # 这一行由于缩进了，它现在完全属于 expander 的一部分，点击大标题它会跟着一起消失！
+        st.write(f"📝 **请在下方勾选您的具体地址（{area}）**")
         res = st.selectbox(
-            f"请选择具体地址", 
+            "选择楼栋", 
             addresses, 
             index=None,
-            placeholder="--- 请在此处勾选你的具体楼栋 ---",
+            placeholder="--- 请点击此处选择具体楼栋 ---",
+            label_visibility="collapsed",  # 隐藏原生的烦人标签，使用我们上面自定义的粗体字
             key=f"select_{area}"
         )
         if res:
             selected_address = res
 
-# 实时显示学生当前锁定的目标地址，防止误触其他区域
+# 实时显示学生当前锁定的目标地址
 if selected_address:
     st.success(f"🎯 当前已锁定目标配送地址：**{selected_address}**")
 
