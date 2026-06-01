@@ -1,21 +1,32 @@
-import streamlit as st
-import psycopg2
 import base64
+import os
+from collections import Counter
+from io import BytesIO
+from itertools import groupby
 
-# 页面配置
-st.set_page_config(page_title="麦当劳早餐配送", page_icon="🍔", layout="centered")
+import pandas as pd
+import psycopg2
+import streamlit as st
 
-# 初始化数据库连接
-def init_connection():
+# ── 页面配置 ──────────────────────────────────────────────
+st.set_page_config(
+    page_title="麦当劳早餐配送",
+    page_icon="🍔",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
+
+# ── 数据库连接 ────────────────────────────────────────────
+def get_conn():
     try:
         return psycopg2.connect(st.secrets["DATABASE_URL"])
     except Exception as e:
-        st.error(f"数据库连接失败，请检查配置。错误: {e}")
+        st.error(f"❌ 数据库连接失败: {e}")
         return None
 
-# 创建数据表
+
 def init_db():
-    conn = init_connection()
+    conn = get_conn()
     if conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -29,148 +40,196 @@ def init_db():
             conn.commit()
         conn.close()
 
+
 init_db()
 
-# 预设固定的校园地址列表
-ADDRESS_DATA = {
-    "🏫 教学楼区": [
-        "1 号教学楼（一教）", "2 号教学楼（二教）", "3 号教学楼（三教）", 
-        "4 号教学楼（法学院）", "5 号教学楼（五教）", "6 号教学楼（六教）", 
-        "7 号教学楼（七教）", "8 号教学楼（实验楼）", "9 号教学楼（九教）", 
-        "10 号教学楼（十教）", "11 号教学楼（十一教）", "12 号教学楼（十二教）", 
-        "13 号教学楼（十三教）", "14 号教学楼（十四教）", "15 号教学楼（十五教）", 
-        "16 号教学楼（建筑学院）", "经管大楼", "港航中心", "电苑楼", "图书馆A/B馆"
+# ── 硬编码地址 ────────────────────────────────────────────
+AREAS = {
+    "🏫 教学楼": [
+        "1号教学楼（一教）", "2号教学楼（二教）", "3号教学楼（三教）",
+        "4号教学楼（法学院）", "5号教学楼（五教）", "6号教学楼（六教）",
+        "7号教学楼（七教）", "8号教学楼（实验楼）", "9号教学楼（九教）",
+        "10号教学楼（十教）", "11号教学楼（十一教）", "12号教学楼（十二教）",
+        "13号教学楼（十三教）", "14号教学楼（十四教）", "15号教学楼（十五教）",
+        "16号教学楼（建筑学院）", "经管大楼", "港航中心", "电苑楼",
+        "图书馆A/B馆",
     ],
-    "🍏 西苑宿舍区": [f"西苑 {i} 栋" for i in range(1, 12)],
-    "🍓 东苑宿舍区": [f"东苑 {i} 栋" for i in range(1, 16)] + ["外教楼"],
-    "🍊 南苑宿舍区": [f"南苑 {i} 栋" for i in range(1, 9)]
+    "🌳 西苑": [
+        "西苑1栋", "西苑2栋", "西苑3栋", "西苑4栋", "西苑5栋",
+        "西苑6栋", "西苑7栋", "西苑8栋", "西苑9栋", "西苑10栋",
+        "西苑11栋",
+    ],
+    "🌅 东苑": [
+        "东苑1栋", "东苑2栋", "东苑3栋", "东苑4栋", "东苑5栋",
+        "东苑6栋", "东苑7栋", "东苑8栋", "东苑9栋", "东苑10栋",
+        "东苑11栋", "东苑12栋", "东苑13栋", "东苑14栋", "东苑15栋",
+        "外教楼",
+    ],
+    "🌿 南苑": [
+        "南苑1栋", "南苑2栋", "南苑3栋", "南苑4栋",
+        "南苑5栋", "南苑6栋", "南苑7栋", "南苑8栋",
+    ],
 }
 
-# 检查是否开启管理员入口
+# ── 管理员状态 ────────────────────────────────────────────
+if "admin" not in st.session_state:
+    st.session_state["admin"] = False
+
+# URL 参数自动激活管理员
 query_params = st.query_params
-is_admin_mode = query_params.get("mode") == "admin"
+if query_params.get("mode") == "admin":
+    st.session_state["admin"] = True
 
-# 如果不是管理员访问，则隐藏左侧边栏
-if not is_admin_mode:
-    st.markdown("<style>ul[data-testid='sidebar-nav-items'] {display: none;}</style>", unsafe_allow_html=True)
-    st.markdown("<style>[data-testid='stSidebar'] {display: none;}</style>", unsafe_allow_html=True)
+# ── 侧边栏：仅管理员密码入口 ─────────────────────────────
+with st.sidebar:
+    admin_pwd = st.text_input(
+        "管理员密码",
+        type="password",
+        placeholder="输入密码解锁后台",
+        label_visibility="collapsed",
+    )
+    if admin_pwd:
+        ADMIN_PASSWORD = st.secrets.get("ADMIN_PASSWORD", "mcd123")
+        if admin_pwd == ADMIN_PASSWORD:
+            st.session_state["admin"] = True
+            st.success("✅ 管理员模式已激活")
+        else:
+            st.error("❌ 密码错误")
 
-# --- 学生端主界面 ---
+# ── 学生端 ────────────────────────────────────────────────
 st.title("🍔 麦当劳早餐配送提交")
-st.write("请上传您的麦当劳预约成功订单截图，并选择您的配送地点。")
+st.write("上传订单截图 + 选择地址 = 提交成功，配单员直接看图打包。")
 
 st.subheader("📌 步骤一：上传订单截图")
-uploaded_file = st.file_uploader("点击下方按钮选择手机相册中的麦当劳截图", type=["png", "jpg", "jpeg"])
-
+uploaded_file = st.file_uploader(
+    "上传麦当劳订单截图",
+    type=["png", "jpg", "jpeg"],
+    label_visibility="collapsed",
+)
 if uploaded_file:
-    st.image(uploaded_file, caption="已上传截图预览", width=300)
+    st.image(uploaded_file, use_container_width=True)
+else:
+    st.info("📷 点击上方按钮从相册选择截图")
 
 st.subheader("📌 步骤二：选择配送地址")
-st.info("💡 点击下方你想送达的大区域大标题（点一次展开，再点一次整体隐藏）。")
 
-selected_address = None
+# ✅ 修复：两级联动下拉，不会互相覆盖
+col_area, col_bldg = st.columns([1, 2])
+with col_area:
+    sel_area = st.selectbox("区域", list(AREAS.keys()), index=0, label_visibility="collapsed")
+with col_bldg:
+    sel_bldg = st.selectbox(
+        "楼栋", AREAS[sel_area], index=0, label_visibility="collapsed"
+    )
 
-# 核心修改点：把“请选择具体地址”塞进 with 内部，跟下拉框一起由折叠面板控制！
-for area, addresses in ADDRESS_DATA.items():
-    # 默认全部折叠收起
-    with st.expander(f"✨ 点击展开/收起：{area}", expanded=False):
-        # 这一行由于缩进了，它现在完全属于 expander 的一部分，点击大标题它会跟着一起消失！
-        st.write(f"📝 **请在下方勾选您的具体地址（{area}）**")
-        res = st.selectbox(
-            "选择楼栋", 
-            addresses, 
-            index=None,
-            placeholder="--- 请点击此处选择具体楼栋 ---",
-            label_visibility="collapsed",  # 隐藏原生的烦人标签，使用我们上面自定义的粗体字
-            key=f"select_{area}"
-        )
-        if res:
-            selected_address = res
-
-# 实时显示学生当前锁定的目标地址
-if selected_address:
-    st.success(f"🎯 当前已锁定目标配送地址：**{selected_address}**")
+final_address = f"{sel_area.split()[1]} · {sel_bldg}"
+st.success(f"🎯 当前地址：**{final_address}**")
 
 # 提交按钮
-st.write("")
-if st.button("🚀 确认提交订单", type="primary", use_container_width=True):
+if st.button("📤 提交订单", type="primary", use_container_width=True):
     if not uploaded_file:
-        st.error("❌ 请先上传您的麦当劳订单截图！")
-    elif not selected_address:
-        st.error("❌ 请先展开上方区域并选择具体的配送楼栋！")
+        st.error("❌ 请先上传订单截图！")
     else:
-        with st.spinner("正在提交中，请稍候..."):
+        with st.spinner("正在提交..."):
             try:
-                # 图片转 Base64 文本
-                bytes_data = uploaded_file.getvalue()
-                base64_str = base64.b64encode(bytes_data).decode("utf-8")
-                
-                # 存入数据库
-                conn = init_connection()
+                img_b64 = base64.b64encode(uploaded_file.getvalue()).decode("utf-8")
+                conn = get_conn()
                 if conn:
                     with conn.cursor() as cur:
                         cur.execute(
                             "INSERT INTO mcd_orders (address, image_base64) VALUES (%s, %s);",
-                            (selected_address, base64_str)
+                            (final_address, img_b64),
                         )
                         conn.commit()
                     conn.close()
-                    st.success(f"🎉 提交成功！已成功绑定至：{selected_address}。感谢配合！")
+                    st.success(f"✅ 提交成功！已绑定至：{final_address} 🎉")
             except Exception as e:
-                st.error(f"提交失败，请联系管理员。错误: {e}")
+                st.error(f"❌ 提交失败: {e}")
 
-# --- 管理员后台入口 ---
-st.write("---")
-admin_password_input = ""
-if not is_admin_mode:
-    with st.expander("🔐 管理员通道"):
-        admin_password_input = st.text_input("请输入管理密码解锁后台", type="password")
+# ── 管理员后台 ────────────────────────────────────────────
+if st.session_state["admin"]:
+    st.divider()
+    st.subheader("📊 管理员 · 今日配单看板")
+    st.caption(
+        "💡 下次直接访问 `https://mcd-breakfast-app.streamlit.app/?mode=admin` 自动进入"
+    )
 
-# 验证密码或者暗号
-if is_admin_mode or (admin_password_input == st.secrets.get("ADMIN_PASSWORD", "mcd123")):
-    st.subheader("📊 麦当劳今日配送视觉看板（配单专用）")
-    
-    # 从数据库调取数据
-    conn = init_connection()
+    conn = get_conn()
     orders = []
     if conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT address, image_base64, created_at FROM mcd_orders ORDER BY created_at DESC;")
-            orders = cur.fetchall()
+            cur.execute(
+                "SELECT address, image_base64, created_at FROM mcd_orders ORDER BY address, id;"
+            )
+            for row in cur.fetchall():
+                orders.append(
+                    {
+                        "address": row[0],
+                        "image_base64": row[1],
+                        "created_at": row[2].strftime("%H:%M") if row[2] else "",
+                    }
+                )
         conn.close()
-    
+
     if not orders:
-        st.info("📭 今日暂无同学提交订单数据。")
+        st.info("暂无订单数据。")
     else:
-        # 按地址分类归集
-        grouped_orders = {}
-        for addr, img_b64, t in orders:
-            if addr not in grouped_orders:
-                grouped_orders[addr] = []
-            grouped_orders[addr].append(img_b64)
-        
-        st.write(f"📈 今日总计收到订单：`{len(orders)}` 单，分布在 `{len(grouped_orders)}` 个地址。")
-        
-        # 循环渲染图片墙
-        for addr, imgs in grouped_orders.items():
-            with st.expander(f"📍 {addr} （共 {len(imgs)} 单）", expanded=False):
-                cols = st.columns(2)
-                for idx, img_b64 in enumerate(imgs):
-                    with cols[idx % 2]:
-                        try:
-                            img_bytes = base64.b64decode(img_b64)
-                            st.image(img_bytes, use_column_width=True, caption=f"订单图片 #{idx+1}")
-                        except Exception:
-                            st.error("图片数据解析失败")
-                            
-        # 清空按钮
-        st.write("---")
-        if st.button("🚨 清空今日所有订单数据", type="secondary"):
-            conn = init_connection()
-            if conn:
-                with conn.cursor() as cur:
-                    cur.execute("TRUNCATE TABLE mcd_orders;")
-                    conn.commit()
-                conn.close()
-                st.warning("💥 今日所有订单数据已全部清空！")
-                st.rerun()
+        st.markdown(f"**共 {len(orders)} 个订单**")
+
+        # ── 数据总表 ──
+        df = pd.DataFrame(orders)
+        df.rename(
+            columns={
+                "address": "配送地址",
+                "created_at": "提交时间",
+            },
+            inplace=True,
+        )
+        st.dataframe(df[["配送地址", "提交时间"]], use_container_width=True, hide_index=True)
+
+        # ── 地址图片墙 ──
+        st.markdown("---")
+        st.markdown("**🖼️ 按地址配单看板**")
+        for addr, group in groupby(orders, key=lambda r: r["address"]):
+            glist = list(group)
+            with st.expander(f"📍 {addr}（共 {len(glist)} 单）", expanded=False):
+                for i in range(0, len(glist), 2):
+                    row = glist[i : i + 2]
+                    cols = st.columns(len(row))
+                    for col, item in zip(cols, row):
+                        with col:
+                            if item.get("image_base64"):
+                                st.image(
+                                    BytesIO(base64.b64decode(item["image_base64"])),
+                                    use_container_width=True,
+                                )
+                            st.caption(f"🕐 {item['created_at']}")
+
+        # ── Excel 导出 ──
+        st.markdown("---")
+        col_a, col_b, _ = st.columns([1, 1, 4])
+        with col_a:
+            df_out = pd.DataFrame(
+                [{"配送地址": o["address"], "提交时间": o["created_at"]} for o in orders]
+            )
+            buffer = BytesIO()
+            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                df_out.to_excel(writer, index=False, sheet_name="配送统计")
+            buffer.seek(0)
+            st.download_button(
+                "📥 导出 Excel",
+                data=buffer,
+                file_name="麦当劳早餐配送统计.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+        with col_b:
+            if st.button("🗑️ 清空全部数据", type="secondary", use_container_width=True):
+                conn2 = get_conn()
+                if conn2:
+                    with conn2.cursor() as cur:
+                        cur.execute("TRUNCATE TABLE mcd_orders;")
+                        conn2.commit()
+                    conn2.close()
+                    st.success("已清空全部数据")
+                    st.rerun()
