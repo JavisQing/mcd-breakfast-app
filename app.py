@@ -16,50 +16,6 @@ hide_streamlit_style = """
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# 终极无死角抹除 Streamlit 所有痕迹（专门针对新版混淆加密标签）
-hide_all_streamlit_elements = """
-            <style>
-            /* 1. 强行把右上角的所有工具栏、三点菜单、状态图标彻底抹去 */
-            #MainMenu, header, [data-testid="stToolbar"], .stAppHeader {
-                display: none !important;
-                visibility: hidden !important;
-                height: 0 !important;
-            }
-            
-            /* 2. 强行抹去底部官方 footer 水印 */
-            footer, .stAppFooter {
-                display: none !important;
-                visibility: hidden !important;
-            }
-            
-            /* 3. 地毯式轰炸右下角悬浮控制台、头像图标、管理条、部署按钮（管它叫什么名字，全部隐藏） */
-            div[data-testid="stViewerBadge"], 
-            .stViewerBadge,
-            [data-testid="manage-app-button"],
-            .stAppDeployDropdown,
-            iframe[title="Manage app"],
-            #tabs-bcontainer-title,
-            .viewerBadge,
-            div[class*="ViewerBadge"],
-            div[class*="StyledViewerBadge"],
-            button[class*="DeployButton"] {
-                display: none !important;
-                visibility: hidden !important;
-                opacity: 0 !important;
-                width: 0 !important;
-                height: 0 !important;
-                pointer-events: none !important;
-            }
-            
-            /* 4. 优化手机端全屏幕顶部的空白多余间距 */
-            .block-container {
-                padding-top: 2rem !important;
-                padding-bottom: 2rem !important;
-            }
-            </style>
-            """
-st.markdown(hide_all_streamlit_elements, unsafe_allow_html=True)
-
 # 初始化数据库连接
 def init_connection():
     try:
