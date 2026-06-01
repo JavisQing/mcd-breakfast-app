@@ -16,25 +16,46 @@ hide_streamlit_style = """
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# 终极去水印与隐藏右下角控制台头像外挂
+# 终极无死角抹除 Streamlit 所有痕迹（专门针对新版混淆加密标签）
 hide_all_streamlit_elements = """
             <style>
-            /* 1. 隐藏右上角三点菜单和工具栏 */
-            #MainMenu {visibility: hidden;}
-            header {visibility: hidden;}
-            div[data-testid="stToolbar"] {display: none !important;}
+            /* 1. 强行把右上角的所有工具栏、三点菜单、状态图标彻底抹去 */
+            #MainMenu, header, [data-testid="stToolbar"], .stAppHeader {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+            }
             
-            /* 2. 隐藏底部官方 footer 水印 */
-            footer {visibility: hidden;}
+            /* 2. 强行抹去底部官方 footer 水印 */
+            footer, .stAppFooter {
+                display: none !important;
+                visibility: hidden !important;
+            }
             
-            /* 3. 强行抹除右下角悬浮的控制台头像图标与整条工具栏 */
-            #tabs-bcontainer-title {display: none !important;}
-            .stAppDeployDropdown {display: none !important;}
-            iframe[title="Manage app"] {display: none !important;}
-            div[data-testid="stViewerBadge"] {display: none !important;}
+            /* 3. 地毯式轰炸右下角悬浮控制台、头像图标、管理条、部署按钮（管它叫什么名字，全部隐藏） */
+            div[data-testid="stViewerBadge"], 
+            .stViewerBadge,
+            [data-testid="manage-app-button"],
+            .stAppDeployDropdown,
+            iframe[title="Manage app"],
+            #tabs-bcontainer-title,
+            .viewerBadge,
+            div[class*="ViewerBadge"],
+            div[class*="StyledViewerBadge"],
+            button[class*="DeployButton"] {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                width: 0 !important;
+                height: 0 !important;
+                pointer-events: none !important;
+            }
             
-            /* 4. 针对手机端可能出现的底部悬浮条彻底隐藏 */
-            [data-testid="manage-app-button"] {display: none !important;}
+            /* 4. 优化手机端全屏幕顶部的空白多余间距 */
+            .block-container {
+                padding-top: 2rem !important;
+                padding-bottom: 2rem !important;
+            }
             </style>
             """
 st.markdown(hide_all_streamlit_elements, unsafe_allow_html=True)
