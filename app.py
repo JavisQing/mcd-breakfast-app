@@ -16,6 +16,29 @@ hide_streamlit_style = """
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
+# 终极去水印与隐藏右下角控制台头像外挂
+hide_all_streamlit_elements = """
+            <style>
+            /* 1. 隐藏右上角三点菜单和工具栏 */
+            #MainMenu {visibility: hidden;}
+            header {visibility: hidden;}
+            div[data-testid="stToolbar"] {display: none !important;}
+            
+            /* 2. 隐藏底部官方 footer 水印 */
+            footer {visibility: hidden;}
+            
+            /* 3. 强行抹除右下角悬浮的控制台头像图标与整条工具栏 */
+            #tabs-bcontainer-title {display: none !important;}
+            .stAppDeployDropdown {display: none !important;}
+            iframe[title="Manage app"] {display: none !important;}
+            div[data-testid="stViewerBadge"] {display: none !important;}
+            
+            /* 4. 针对手机端可能出现的底部悬浮条彻底隐藏 */
+            [data-testid="manage-app-button"] {display: none !important;}
+            </style>
+            """
+st.markdown(hide_all_streamlit_elements, unsafe_allow_html=True)
+
 # 初始化数据库连接
 def init_connection():
     try:
