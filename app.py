@@ -16,6 +16,124 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# ── 彻底隐藏所有 Streamlit 品牌痕迹 ──────────────────────
+hide_streamlit_style = """
+    <style>
+        /* 隐藏顶部红色装饰线 */
+        div[data-testid="stDecoration"] {display: none !important;}
+
+        /* 隐藏顶部标题栏（含 Fork 按钮、菜单、头像） */
+        header[data-testid="stHeader"] {display: none !important;}
+
+        /* 隐藏底部 "Made with Streamlit" */
+        footer {display: none !important;}
+
+        /* 隐藏右上角三点菜单 */
+        #MainMenu {visibility: hidden !important;}
+
+        /* 隐藏侧边栏切换按钮 */
+        button[kind="icon"][data-testid="collapsedControl"] {display: none !important;}
+
+        /* 隐藏状态指示器（Running…） */
+        div[data-testid="stStatusWidget"] {display: none !important;}
+
+        /* 隐藏 Toolbar（包含 Fork 按钮） */
+        div[data-testid="stToolbar"] {display: none !important;}
+
+        /* 隐藏 Streamlit 的 App 头像 */
+        a[href*="share.streamlit.io"], a[href*="streamlit.io/cloud"] {display: none !important;}
+        img[alt="App Creator Avatar"] {display: none !important;}
+
+        /* 隐藏侧边栏 */
+        section[data-testid="stSidebar"] {display: none !important;}
+
+        /* 如果有 Streamlit 社区 logo 也隐藏 */
+        .stApp > div:first-child > div:last-child > a {display: none !important;}
+
+        /* 移除 app 的默认最大宽度限制并增加内边距 */
+        .main > div {
+            padding-top: 0.5rem !important;
+            padding-bottom: 0 !important;
+        }
+
+        /* 自定义整体背景和字体 */
+        .stApp {
+            background: #f8f5f0;
+        }
+        h1, h2, h3 {
+            color: #2d2d2d !important;
+        }
+        .block-container {
+            background: transparent !important;
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem 1.8rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+
+        /* 上传区域美化 */
+        div[data-testid="stFileUploader"] {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 2px dashed #ddd;
+        }
+        div[data-testid="stFileUploader"]:hover {
+            border-color: #ff6b35;
+        }
+
+        /* 成功/信息提示圆角 */
+        div[data-testid="stAlert"] {
+            border-radius: 12px !important;
+        }
+
+        /* 展开面板美化 */
+        div[data-testid="stExpander"] {
+            background: white;
+            border-radius: 12px !important;
+            border: 1px solid #eee !important;
+            margin-bottom: 0.5rem !important;
+        }
+        div[data-testid="stExpander"] summary {
+            font-weight: 600;
+            padding: 0.8rem 1rem !important;
+        }
+
+        /* 按钮圆角 */
+        button[kind="primary"] {
+            border-radius: 12px !important;
+            font-weight: 600 !important;
+        }
+
+        /* 下拉框圆角 */
+        div[data-baseweb="select"] > div {
+            border-radius: 10px !important;
+        }
+
+        /* 分割线美化 */
+        hr {
+            margin: 2rem 0 !important;
+            border-color: #e0ddd8 !important;
+        }
+    </style>
+    <script>
+        // 完全去掉标题中的 "Streamlit" 字样
+        const observer = new MutationObserver(() => {
+            if (document.title.includes("Streamlit")) {
+                document.title = "麦当劳早餐配送";
+            }
+        });
+        observer.observe(document.querySelector('head'), { childList: true, subtree: true });
+        document.title = "麦当劳早餐配送";
+    </script>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 # ── 数据库连接 ────────────────────────────────────────────
 def get_conn():
     try:
@@ -75,34 +193,17 @@ AREAS = {
 if "admin" not in st.session_state:
     st.session_state["admin"] = False
 
-# URL 参数自动激活管理员
-query_params = st.query_params
-if query_params.get("mode") == "admin":
-    st.session_state["admin"] = True
-
-# ── 侧边栏：仅管理员密码入口 ─────────────────────────────
-with st.sidebar:
-    admin_pwd = st.text_input(
-        "管理员密码",
-        type="password",
-        placeholder="输入密码解锁后台",
-        label_visibility="collapsed",
-    )
-    if admin_pwd:
-        ADMIN_PASSWORD = st.secrets.get("ADMIN_PASSWORD", "mcd123")
-        if admin_pwd == ADMIN_PASSWORD:
-            st.session_state["admin"] = True
-            st.success("✅ 管理员模式已激活")
-        else:
-            st.error("❌ 密码错误")
-
 # ── 学生端 ────────────────────────────────────────────────
-st.title("🍔 麦当劳早餐配送提交")
-st.write("上传订单截图 + 选择地址 = 提交成功，配单员直接看图打包。")
+st.markdown('<div class="card">', unsafe_allow_html=True)
+st.title("🍔 麦当劳早餐配送")
+st.markdown("上传订单截图 + 选择地址即可提交，配单员直接看图打包。")
+st.markdown('</div>', unsafe_allow_html=True)
 
-st.subheader("📌 步骤一：上传订单截图")
+# 步骤一
+st.markdown('<div class="card">', unsafe_allow_html=True)
+st.markdown("### 📌 第一步：上传订单截图")
 uploaded_file = st.file_uploader(
-    "上传麦当劳订单截图",
+    "选择麦当劳订单截图",
     type=["png", "jpg", "jpeg"],
     label_visibility="collapsed",
 )
@@ -110,10 +211,12 @@ if uploaded_file:
     st.image(uploaded_file, use_container_width=True)
 else:
     st.info("📷 点击上方按钮从相册选择截图")
+st.markdown('</div>', unsafe_allow_html=True)
 
-st.subheader("📌 步骤二：选择配送地址")
+# 步骤二
+st.markdown('<div class="card">', unsafe_allow_html=True)
+st.markdown("### 📌 第二步：选择配送地址")
 
-# ✅ 修复：两级联动下拉，不会互相覆盖
 col_area, col_bldg = st.columns([1, 2])
 with col_area:
     sel_area = st.selectbox("区域", list(AREAS.keys()), index=0, label_visibility="collapsed")
@@ -145,14 +248,30 @@ if st.button("📤 提交订单", type="primary", use_container_width=True):
                     st.success(f"✅ 提交成功！已绑定至：{final_address} 🎉")
             except Exception as e:
                 st.error(f"❌ 提交失败: {e}")
+st.markdown('</div>', unsafe_allow_html=True)
 
-# ── 管理员后台 ────────────────────────────────────────────
-if st.session_state["admin"]:
+# ── 管理员入口 ──────────────────────────────────────────
+st.markdown("---")
+with st.expander("🔐 管理员通道"):
+    admin_pwd = st.text_input(
+        "管理员密码",
+        type="password",
+        placeholder="输入密码进入后台",
+        label_visibility="collapsed",
+    )
+    ADMIN_PASSWORD = st.secrets.get("ADMIN_PASSWORD")
+    if not ADMIN_PASSWORD:
+        st.error("⚠️ 服务器未配置管理员密码，请联系开发者。")
+    elif admin_pwd:
+        if admin_pwd == ADMIN_PASSWORD:
+            st.session_state["admin"] = True
+            st.success("✅ 管理员模式已激活")
+        else:
+            st.error("❌ 密码错误")
+
+if st.session_state["admin"] and ADMIN_PASSWORD:
     st.divider()
     st.subheader("📊 管理员 · 今日配单看板")
-    st.caption(
-        "💡 下次直接访问 `https://mcd-breakfast-app.streamlit.app/?mode=admin` 自动进入"
-    )
 
     conn = get_conn()
     orders = []
@@ -176,7 +295,7 @@ if st.session_state["admin"]:
     else:
         st.markdown(f"**共 {len(orders)} 个订单**")
 
-        # ── 数据总表 ──
+        # 数据总表
         df = pd.DataFrame(orders)
         df.rename(
             columns={
@@ -187,7 +306,7 @@ if st.session_state["admin"]:
         )
         st.dataframe(df[["配送地址", "提交时间"]], use_container_width=True, hide_index=True)
 
-        # ── 地址图片墙 ──
+        # 地址图片墙
         st.markdown("---")
         st.markdown("**🖼️ 按地址配单看板**")
         for addr, group in groupby(orders, key=lambda r: r["address"]):
@@ -205,7 +324,7 @@ if st.session_state["admin"]:
                                 )
                             st.caption(f"🕐 {item['created_at']}")
 
-        # ── Excel 导出 ──
+        # Excel 导出 + 清空
         st.markdown("---")
         col_a, col_b, _ = st.columns([1, 1, 4])
         with col_a:
